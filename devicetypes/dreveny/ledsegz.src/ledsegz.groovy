@@ -1,5 +1,5 @@
 /**
- *  LED Segz
+ *  LED Segz - a custom made LED segment project.
  *
  *  Copyright 2017 Chad Dreveny
  *
@@ -130,9 +130,8 @@ def setHue(percentage) {
 	
     Integer newHue = percentage
     Integer currentSaturation = device.currentValue("saturation")
-    Integer currentLevel = device.currentValue("level")
 
-	def hex = colorUtil.hsvToHex(newHue, currentSaturation, currentLevel)
+	def hex = colorUtil.hsvToHex(newHue, currentSaturation)
     sendEvent(name: 'colorTemperature', value: null)
 	sendEvent(name: 'color', value: hex)
 	sendEvent(name: 'hue', value: newHue)
@@ -144,9 +143,8 @@ def setSaturation(percentage) {
 	
     Integer newSaturation = percentage
     Integer currentHue = device.currentValue("hue")
-    Integer currentLevel = device.currentValue("level")
 
-	def hex = colorUtil.hsvToHex(currentHue, newSaturation, currentLevel)
+	def hex = colorUtil.hsvToHex(currentHue, newSaturation)
     sendEvent(name: 'colorTemperature', value: null)
 	sendEvent(name: 'color', value: hex)
 	sendEvent(name: 'saturation', value: newSaturation)
@@ -158,10 +156,9 @@ def setColor(Map color) {
     
     Integer newHue = color ?.hue ?: 0
     Integer newSaturation = color ?.saturation ?: 0
-    Integer currentLevel = device.currentValue("level")
 
-	log.debug "new hsv: ${newHue}, ${newSaturation}, ${currentLevel}"
-	def hex = colorUtil.hsvToHex(newHue, newSaturation, currentLevel)
+	log.debug "new HS: ${newHue}, ${newSaturation}"
+	def hex = colorUtil.hsvToHex(newHue, newSaturation)
     log.debug "new hex: ${hex}"
     
     sendEvent(name: 'colorTemperature', value: null)
@@ -173,14 +170,8 @@ def setColor(Map color) {
 
 def setColorTemperature(kelvin) {
 	log.debug "Executing 'setColorTemperature(${kelvin})'"
-    def hsv = kelvinToHsv(kelvin)
-    
-    // Leave the value alone and simply set the hue/sat.
-    Integer currentHue = device.currentValue("hue")
-    Integer currentSaturation = device.currentValue("saturation")
-    Integer currentLevel = device.currentValue("level")
-
-	def hex = colorUtil.hsvToHex(hsv[0], hsv[1], currentLevel)
+    def hsv = kelvinToHsv(kelvin)    
+	def hex = colorUtil.hsvToHex(hsv[0], hsv[1])
     sendEvent(name: 'colorTemperature', value: kelvin, unit: "Kelvin")
 	sendEvent(name: 'color', value: hex)
 	sendEvent(name: 'hue', value: hsv[0])
@@ -189,16 +180,16 @@ def setColorTemperature(kelvin) {
 }
 
 def setLevel(percentage, rate=null) {
-	log.debug "Executing 'setLevel(${percentage}, ${rate})'"
-    
+	log.debug "Executing 'setLevel(${percentage}, ${rate})'"    
     Integer currentHue = device.currentValue("hue")
     Integer currentSaturation = device.currentValue("saturation")
-    Integer newLevel = percentage
-    
-	def hex = colorUtil.hsvToHex(currentHue, currentSaturation, newLevel)
-    sendEvent(name: 'level', value: newLevel)
-
-	setStripRgb(colorUtil.hexToRgb(hex))
+    Integer newLevel = Math.round(percentage * 255.0 / 100.0)
+    sendEvent(name: 'level', value: percentage)    
+    sendEvent(name: 'switch', value: "on")
+    delayBetween(
+    	[hubGet("/cmd/brightness([${newLevel}])"), 
+         setStripRgb(colorUtil.hexToRgb(colorUtil.hsvToHex(currentHue, currentSaturation)))],
+        250)
 }
 
 def execute(String command, args) {
@@ -231,12 +222,15 @@ private List<String> splitEqually(String text, int size) {
 
 def on() {
 	log.debug "Executing 'on'"
-	// TODO: handle 'on' command
+    Integer currentHue = device.currentValue("hue")
+    Integer currentSaturation = device.currentValue("saturation")
+    setStripRgb(colorUtil.hexToRgb(colorUtil.hsvToHex(currentHue, currentSaturation)))
 }
 
 def off() {
 	log.debug "Executing 'off'"
-	// TODO: handle 'off' command
+    sendEvent(name: 'switch', value: "off")
+    hubGet("/cmd/off")
 }
 
 // Private Methods
@@ -252,6 +246,7 @@ private initialize() {
 
 private setStripRgb(rgb) {
 	log.debug "setStripRgb(${rgb})"
+    sendEvent(name: 'switch', value: "on")
     hubGet("/cmd/color([${rgb[0]},${rgb[1]},${rgb[2]}])")
 }
 

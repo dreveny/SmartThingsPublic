@@ -15,7 +15,7 @@
  * change log
  *   2015-02-16 added delay between configuration changes, helps with devices further away from the hub.
  *   2015-02-21 fixed null error on initial install
- *   2018-05-22 Forked to clean up and add new options.
+ *   2018-05-22 Forked to clean up and add new options and added momentary switch option.
 */
 
 metadata {
@@ -25,6 +25,7 @@ metadata {
     capability "Switch"
     capability "Polling"
     capability "Refresh"
+    capability "Momentary"
     capability "Sensor"
     capability "Relay Switch"
 
@@ -38,6 +39,9 @@ metadata {
     input name: "param2", type: "enum", title: "Auto shutoff minutes:",
         description: "Minutes?", required: false,
         options: ["Never", "1", "5", "30", "60", "90", "120", "240"]
+    input name: "momentary", type: "number", title: "Momentary relay seconds (0 to disable):",
+        description: "Seconds after which relay will be closed"
+        required: false
   }
 
   // Simulator metadata
@@ -78,12 +82,7 @@ def parse(String description) {
   if (cmd) {
     result = createEvent(zwaveEvent(cmd))
   }
-  if (result?.name == 'hail' && hubFirmwareLessThan("000.011.00602")) {
-    result = [result, response(zwave.basicV1.basicGet())]
-    log.debug "Was hailed: requesting state update"
-  } else {
-    log.debug "Parse returned ${result?.descriptionText}"
-  }
+  log.debug "Parse returned ${result?.descriptionText}"
   return result
 }
 
@@ -94,13 +93,6 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
   [name: "switch", value: cmd.value ? "on" : "off", type: "digital"]
 }
-
-//def zwaveEvent(physicalgraph.zwave.commands.configurationv1.ConfigurationReport cmd) {
-//  def value = "when off"
-//  if (cmd.configurationValue[0] == 1) {value = "when on"}
-//  if (cmd.configurationValue[0] == 2) {value = "never"}
-//  [name: "indicatorStatus", value: value, display: false]
-//}
 
 def zwaveEvent(physicalgraph.zwave.commands.hailv1.Hail cmd) {
   [name: "hail", value: "hail", descriptionText: "Switch button was pressed", displayed: false]
@@ -141,11 +133,25 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
   [:]
 }
 
-def on() {
+def push() {
   delayBetween([
       zwave.basicV1.basicSet(value: 0xFF).format(),
+      zwave.switchBinaryV1.switchBinaryGet().format(),
+      "delay ${(settings.momentary ?: 3) * 1000}",
+      zwave.basicV1.basicSet(value: 0x00).format(),
       zwave.switchBinaryV1.switchBinaryGet().format()
   ])
+}
+
+def on() {
+  if ((settings.momentary ?: 0) != 0) {
+    push()
+  } else {
+    delayBetween([
+        zwave.basicV1.basicSet(value: 0xFF).format(),
+        zwave.switchBinaryV1.switchBinaryGet().format()
+    ])
+  }
 }
 
 def off() {

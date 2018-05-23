@@ -204,20 +204,7 @@ def startActivity(String activityId) {
 
 def refresh() {
 	log.debug "Executing 'refresh'"
-    def m = colorUtil.getDeclaredMethods()
-    for (i in m) {
-    	log.debug "${i}"
-    }
 	// TODO: handle 'refresh' command
-}
-
-private List<String> splitEqually(String text, int size) {
-    def List ret = new ArrayList()
-
-    for (int start = 0; start < text.length(); start += size) {
-        ret.add(text.substring(start, Math.min(text.length(), start + size)));
-    }
-    return ret;
 }
 
 def on() {
@@ -294,54 +281,6 @@ private Integer kelvinBlue(Double tmpKelvin) {
 
 private Integer saturateColor(value) {
 	return Math.min(Math.max(value, 0), 255)
-}
-
-private List OBSOLETE_rgbToHsv(r, g, b) {
-	return rgbToHsv([r, g, b])
-}
-
-private List OBSOLETE_rgbToHsv(rgb) {
-	// Based on: https://www.rapidtables.com/convert/color/rgb-to-hsv.html
-	def rp = rgb[0] / 255.0
-    def gp = rgb[1] / 255.0
-    def bp = rgb[2] / 255.0
-    def cmax = [rp, gp, bp].max()
-    def cmin = [rp, gp, bp].min()
-    def delta = cmax - cmin
-    
-    // Hue calculation.
-    def hue
-    if (delta == 0) {
-    	hue = 0	
-    } else if (cmax == rp) {
-    	hue = ((gp - bp) / delta).remainder(6)
-    } else if (cmax == gp) {
-    	hue = ((bp - rp) / delta) + 2
-    } else if (cmax == bp) {
-    	hue = ((rp - gp) / delta) + 4
-	} else {
-    	log.error "Unknown hue value."
-        hue = 0
-    }
-    // Above hues are in 60 degree increments.  Normalize to 0..1.
-    hue = hue / 6.0
-    
-    // Saturation calculation.
-    def sat
-    if (cmax == 0) {
-    	sat = 0
-    } else {
-    	sat = delta / cmax
-    }
-    
-    // Value calculation.
-    def val = cmax
-    
-    return [hue, sat, val]
-}
-
-private hubPost(command) {
-    hubGet(command, "POST")
 }
 
 private hubGet(command, method="GET") {
